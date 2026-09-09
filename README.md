@@ -1,11 +1,13 @@
-# Word Master · Harvey
+# Word Master · Harvey · v0.2
 
 A playful, bilingual vocabulary learning app designed for young learners. It runs entirely in the browser and adapts to phone and iPad layouts.
+
+Current version: **0.2**. See [更新记录](CHANGELOG.md) for release notes.
 
 ## Features
 
 - Ten textbook units with flashcards, phonetics, word formation notes, and example sentences
-- Six practice modes plus due-word review
+- Two audio-led spelling and phonics games plus due-word review
 - English and Chinese interface switch, with English as the default
 - Monthly learning calendar with daily check-ins
 - Coins for completing units and a 100-coin weekly bonus after five active days

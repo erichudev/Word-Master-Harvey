@@ -152,36 +152,49 @@ if (t2) {
 ok('复习池可过滤跨单元', Store.reviewDue().every(w => w.status !== 'new'));
 ok('到期词按 next 升序', (() => { const r = Store.reviewDue(); return r.every((w, i) => i === 0 || r[i - 1].next <= w.next); })());
 
-/* ================= 5. 五+1 种题型 ================= */
-section('5. 五+1 种题型');
-const pool = Store.state.words.slice(0, 10);
+section('5. 听音拼写与 Phonics');
+const pool = Store.state.words;
+ok('游戏区只有两个新游戏', Object.keys(GAMES).join(',') === 'spell,phonics');
 for (const type of Object.keys(GAMES)) {
   Quiz.open(type, pool);
-  const ok1 = $('#game').classList.contains('show') && $('#game').innerHTML.length > 50;
-  ok(GAMES[type].name + ' 能开局', ok1);
-  const n = type === 'match' ? Quiz.mstate.left.length : Quiz.qs.length;
-  ok(GAMES[type].name + ' 题目数符合配置', n === Math.min(GAMES[type].size, type === 'root' ? pool.filter(w => w.parts.length).length : pool.length), '实际 ' + n);
+  ok(type + ' 能开局', !!$('#game .audio-play'));
+  ok(type + ' 题量符合可用词', Quiz.qs.length === Math.min(GAMES[type].size, Quiz.available(type, pool).length));
+  ok(type + ' 无中文释义考题', !$('#game .q-title'));
   Quiz.close(true);
 }
-// 词根题必须能拿到 parts 含义
-Quiz.open('root', pool);
-const target = Quiz.qs.find(w => (w.parts || []).length) || Quiz.qs[0];
-const qh = Quiz.q_root(target);
-ok('词根题正面展示词素色块', /class="m-piece/.test(qh));
-ok('词根题选项里至少含 4 个含义', qh.match(/data-g=/g).length === 4);
-Quiz.close(true);
-// 完整跑选择题直到结算
-Quiz.open('choice', pool);
+ok('不把特殊发音误判为常规音块', !Quiz.soundBlock({w:'chef', ph:'/ʃef/'}));
+ok('双字母组合优先于单字母', Quiz.soundBlock({w:'ship', ph:'/ʃɪp/'})[0] === 'sh');
+ok('缺少音标的导入词不猜测发音', !Quiz.soundBlock({w:'ship'}));
+ok('短语不生成无法操作的空格字母', Quiz.available('spell', [{w:'ice cream'}]).length === 0);
+Quiz.open('phonics', pool);
 let step = 0;
 while (Quiz.qi < Quiz.qs.length && step++ < 30) {
   Quiz.render();
-  const w = Quiz.qs[Quiz.qi];
-  const btn = $('#game .opt');
-  Quiz.pick(btn, btn.dataset.id, w.id);
+  const btn = [...win.document.querySelectorAll('.sound-option')].find(b => b.dataset.block === Quiz.soundAnswer);
+  const before = Quiz.right;
+  Quiz.pickSound(btn); Quiz.pickSound(btn);
+  ok('重复点击只计分一次', Quiz.right === before + 1);
 }
 Quiz.result($('#game'));
-ok('选择题结算页含分数', /\d+<span[^>]*>%/.test($('#game').innerHTML), $('#game').innerHTML.match(/score[^>]*>[^<]+/)?.[0]);
-ok('选择题结算页含答对题数', /答对 \d+/.test($('#game').innerHTML));
+ok('Phonics 全对结算 100%', $('#game .score').textContent === '100%');
+Quiz.close(true);
+Quiz.open('spell', [pool[0]]);
+const spellingWord = Quiz.qs[0];
+for (const letter of spellingWord.w) {
+  const btn = [...win.document.querySelectorAll('#lets .letter')].find(b => !b.classList.contains('used') && b.textContent === letter);
+  Quiz.tapLetter(btn, spellingWord.id);
+}
+await new Promise(r => setTimeout(r, 260));
+ok('点字母完成拼写并计分', Quiz.qi === 1 && Quiz.right === 1);
+Quiz.close(true);
+Quiz.open('spell', [spellingWord]);
+Quiz.hintSpell(spellingWord.id);
+for (const letter of spellingWord.w.slice(1)) {
+  const btn = [...win.document.querySelectorAll('#lets .letter')].find(b => !b.classList.contains('used') && b.textContent === letter);
+  Quiz.tapLetter(btn, spellingWord.id);
+}
+await new Promise(r => setTimeout(r, 260));
+ok('提示完成保留复习、不计独立掌握', Quiz.qi === 1 && Quiz.right === 0 && Quiz.wrongWords.includes(spellingWord.id));
 Quiz.close(true);
 
 /* ================= 6. 单元通关解锁 ================= */
@@ -279,7 +292,7 @@ ok('可自由进入 Unit 7', UI.unit === 7);
 /* ================= 12. 无 TTS 降级 ================= */
 section('12. 降级与边界');
 ok('无 speechSynthesis 时 speak 不报错', (() => { try { win.speak('test'); return true; } catch (e) { return false; } })());
-Quiz.open('listen', Store.state.words.slice(0, 5));
+Quiz.open('spell', Store.state.words.slice(0, 5));
 ok('听力题在无 TTS 环境仍能开局', $('#game').classList.contains('show'));
 Quiz.close(true);
 
@@ -288,22 +301,10 @@ section('13. 功能回归');
 Store.resetAll();
 const city = Store.state.words.find(w => w.w === 'city');
 const tourist = Store.state.words.find(w => w.w === 'tourist');
-Quiz.open('root', [city, tourist]);
-ok('词根题过滤无拆解词', Quiz.qs.length === 1 && Quiz.qs[0].id === tourist.id);
-ok('词根题标出目标', !!$('#game .root-target') && $('#game .q-sub').textContent.includes($('#game .root-target').textContent));
-const options = [...win.document.querySelectorAll('#game .opt')].map(b => b.dataset.g);
-ok('词根选项无重复', new Set(options).size === options.length);
-Quiz.close(true);
-Quiz.open('type', [city]);
-$('#tin').value = city.w;
-const rights = Store.state.stats.right;
-Quiz.submitType(city.id); Quiz.submitType(city.id);
-ok('重复提交只计分一次', Store.state.stats.right === rights + 1 && Quiz.right === 1 && Quiz.qi === 1);
-Quiz.close(true);
-Quiz.open('choice', [tourist]);
-const distractors = Quiz.distractors(tourist, 300, w => w);
-ok('选择题排除同词同义干扰项', distractors.every(w => w.w.toLowerCase() !== tourist.w.toLowerCase() && w.cn !== tourist.cn));
-ok('干扰项彼此去重', new Set(distractors.map(w => w.w.toLowerCase())).size === distractors.length);
+Quiz.open('phonics', Store.state.words);
+Quiz.showModel();
+Quiz.pickSound([...win.document.querySelectorAll('.sound-option')].find(b => b.dataset.block === Quiz.soundAnswer));
+ok('Phonics 看答案后不计独立答对', Quiz.right === 0 && Quiz.wrongWords.length === 1);
 Quiz.close(true);
 Store.markLearned(tourist.id);
 Store.answer(tourist.id, true);
@@ -330,7 +331,7 @@ ok('旧记录自动补充词根', Store.byId(restored.id).parts.length > 0 && !!
 const deleted = Store.state.words.find(w => w.w === 'city');
 Store.remove(deleted.id); Store.load();
 ok('删除内置词后刷新不复活', !Store.unitWords(1).some(w => w.w === 'city'));
-UI.drillScope = 'all'; UI.play('choice', 10);
+UI.drillScope = 'all'; UI.play('spell', 10);
 ok('跨单元练习不计当前单元通关', !Quiz.opts.unit);
 Quiz.close(true);
 UI.startLearn(false);
@@ -338,16 +339,6 @@ UI.learnQueue = [{id: restored.id, again: 0}, {id: restored.id, again: 1}];
 UI.finishLearn();
 ok('学习完成数量去除重复复学', $('#game').textContent.includes('1 个新词'));
 UI.quitLearn();
-const pairWords = Store.state.words.slice(0, 2);
-Quiz.open('match', pairWords);
-Quiz.tapPair(pairWords[0].id, 'L');
-Quiz.tapPair(pairWords[1].id, 'R');
-ok('配对答错记录在选中的英文词', Quiz.wrongWords.includes(pairWords[0].id));
-Quiz.mstate.busy = false; Quiz.mstate.sel = null;
-for (const w of pairWords) { Quiz.tapPair(w.id, 'L'); Quiz.tapPair(w.id, 'R'); }
-Quiz.result($('#game'));
-ok('配对有错题不会结算为满分', Quiz.right === 1 && $('#game .score').textContent.startsWith('50'));
-Quiz.close(true);
 ok('自定义单元标题用于显示', Store.unitDef(11).title === '自定义单元');
 ok('最终无运行期错误', errors.length === 0, errors.join(' | '));
 

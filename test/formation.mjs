@@ -65,18 +65,17 @@ check('全部学习卡和详情页实际渲染讲解及相关词', () => {
   }
   UI.quitLearn();
 });
-check('全部可拆分词都能生成词根题，基础词和短语不滥入题库', () => {
-  Quiz.open('root',Store.state.words);
+check('Phonics 根据音标出题，不依赖词根拆解', () => {
+  Quiz.open('phonics',Store.state.words);
   assert.ok(Quiz.pool.length > 28);
   for (const w of Quiz.pool) {
-    const html = Quiz.q_root(w);
-    const el = win.document.createElement('div'); el.innerHTML=html;
-    assert.ok(el.querySelector('.root-target'),w.w);
-    const opts = Array.from(el.querySelectorAll('.opt')).map(b=>b.dataset.g);
-    assert.equal(opts.length,new Set(opts).size,w.w);
-    assert.ok(opts.includes(Quiz.rootTarget),w.w);
+    const el = win.document.createElement('div'); el.innerHTML = Quiz.q_phonics(w);
+    const opts = Array.from(el.querySelectorAll('.sound-option')).map(b => b.dataset.block);
+    assert.equal(opts.length, 4);
+    assert.equal(opts.length, new Set(opts).size, w.w);
+    assert.ok(opts.includes(Quiz.soundAnswer), w.w);
+    assert.ok(w.w.toLowerCase().startsWith(Quiz.soundAnswer));
   }
-  assert.ok(Quiz.pool.every(w=>w.parts.length > 0));
   Quiz.close(true);
 });
 check('旧浏览器数据补齐所有词，保留 ID、进度、统计和例句', () => {

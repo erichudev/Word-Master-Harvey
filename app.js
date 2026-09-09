@@ -1,4 +1,5 @@
 /* ============ Word-Master-Harvey · 界面 ============ */
+const APP_VERSION = '0.2';
 const ICON = n => '<svg><use href="#i-' + n + '"/></svg>';
 const isEnglishUI = () => !!(Store.state && Store.state.settings && Store.state.settings.language === 'en');
 const tr = (zh, en) => isEnglishUI() ? en : zh;
@@ -92,7 +93,7 @@ const UI = {
     return `<div class="profile-card"><div class="avatar">${esc((Store.state.settings.name || 'H').slice(0,1).toUpperCase())}</div><div><h2>${esc(Store.state.settings.name || 'Harvey')}</h2><p class="muted">${tr('每一点进步，都值得记录','Every little step is worth celebrating')}</p></div></div>
     <div class="coin-card"><img src="assets/word-explorer-fox.png" alt="${tr('小狐狸金币伙伴','Fox coin buddy')}"><div><span>${tr('我的金币宝箱','My Coin Chest')}</span><strong>🪙 ${o.coins}</strong><small>${tr(`已领取 ${Store.state.rewards.claimedUnits.length} 个单元奖励、${Store.state.rewards.claimedWeeks.length} 个每周奖励`,`${Store.state.rewards.claimedUnits.length} unit and ${Store.state.rewards.claimedWeeks.length} weekly rewards collected`)}</small></div></div>
     ${this.weeklyChallenge(true)}
-    <div class="profile-actions"><button class="btn" onclick="UI.goMode('stats')">${ICON('chart')} ${tr('学习统计','My Progress')}</button><button class="btn ghost" onclick="UI.goMode('set')">${ICON('gear')} ${tr('设置','Settings')}</button><button class="btn ghost" onclick="UI.goMode('review')">${ICON('flip')} ${tr('到期复习','Review')}</button></div>${this.view_stats()}`;
+    <div class="profile-actions"><button class="btn" onclick="UI.goMode('stats')">${ICON('chart')} ${tr('学习统计','My Progress')}</button><button class="btn ghost" onclick="UI.goMode('set')">${ICON('gear')} ${tr('设置','Settings')}</button><button class="btn ghost" onclick="UI.goMode('review')">${ICON('flip')} ${tr('到期复习','Review')}</button></div>${this.versionNotes()}${this.view_stats()}`;
   },
 
   renderSide() {
@@ -124,7 +125,7 @@ const UI = {
     $('#qsMasteredLabel').textContent = tr('已掌握','Mastered');
     $('#qsLearnLabel').textContent = tr('学习中','Learning');
     $('#qsUnitsLabel').textContent = tr('通关','Passed');
-    $('#brandSubtitle').textContent = tr('给 Harvey 的单词书',"Harvey's Word Book");
+    $('#brandSubtitle').textContent = tr('给 Harvey 的单词书',"Harvey's Word Book") + ' · v' + APP_VERSION;
     $('#sideHint').textContent = tr('所有单元都能随时打开，不受顺序限制。完成「学新词 + 练一练 ≥70%」即标记该单元通关。','Open any unit at any time. Learn its words and score 70% or more to pass.');
   },
 
@@ -370,14 +371,14 @@ const UI = {
     </div>`;
     html += `<div class="game-grid">${Object.keys(GAMES).map(k => {
       const g = GAMES[k];
-      const n = Math.min(g.size, k === 'root' ? words.filter(w => (w.parts || []).some(p => p.p && p.g)).length : words.length);
+      const n = Math.min(g.size, Quiz.available(k, words).length);
       return `<button class="game-card" onclick="UI.play('${k}',${n})">
         <div class="ico" style="background:${g.color}">${g.icon}</div>
         <div style="flex:1"><b>${esc(isEnglishUI() ? g.nameEn : g.name)}</b><p>${esc(isEnglishUI() ? g.descEn : g.desc)}</p></div>
         <div class="muted">${n} ${tr('题','questions')}</div>
       </button>`;
     }).join('')}</div>`;
-    html += `<div class="card"><div class="h3">${tr('答题规则','How it works')}</div>
+    html += `<div class="card"><div class="h3">${tr('答题规则','How it works')}</div><p class="muted">${tr('可反复听音；使用提示或拼错后完成的题会加入复习，不计独立答对。Phonics 只练有明确音标匹配的词首音块。','Listen as often as you like. Words completed with hints or retries go into review and do not count as independent correct answers. Phonics practices verified starting sound blocks.')}</p>
       <div class="muted">${tr(`每答对 1 次，下次复习间隔自动拉长（1 → 2 → 4 → 7 → 15 → 30 天）；答错立即归零重来。累计答对 5 次 = 已掌握。完成本单元所有单词的学习 + 1 次练习 ≥ ${PASS_RATE}% = 本单元通关。各单元均可自由打开，不受顺序限制。`,`Each correct answer makes the next review wait longer: 1, 2, 4, 7, 15, then 30 days. Five correct answers master a word. Learn every word and score ${PASS_RATE}% or more to pass the unit.`)}</div></div>`;
     return html;
   },
@@ -445,10 +446,21 @@ const UI = {
     ${o.total === 0 ? `<div class="card center muted">${tr('导入单词并开始学习后，这里会显示 Harvey 的进步曲线',"Add words and start learning to see Harvey's progress here")}</div>` : ''}</div>`;
   },
 
+  versionNotes() {
+    const notes = [
+      tr('听音拼单词：听发音，点字母拼写，支持重听、撤回和字母提示。', 'Listen & Build: hear a word and tap letters to spell it, with replay, undo, and hints.'),
+      tr('Phonics 补音块：听单词，补上词首字母或组合（如 sh、ch、th），根据音标匹配出题。', 'Phonics Sound Blocks: listen and fill in a starting letter or group such as sh, ch, or th, matched to the word’s pronunciation.'),
+      tr('游戏区精简为两个听音游戏，移除中英文选择、配对和词根选择等旧玩法。', 'Two audio-led games replace the previous translation, matching, and word-part quizzes.'),
+      tr('拼错可重试；使用提示或重试完成的词进入复习，不计独立答对。保留原有学习记录和金币。', 'Retry misspellings. Words completed with hints or retries go into review instead of counting as independent correct answers. Learning records and coins are preserved.')
+    ];
+    return `<div class="card"><div class="between"><div class="h2">${tr('版本与更新', 'Version & Updates')}</div><span class="chip">v${APP_VERSION}</span></div>
+      <details><summary>${tr('查看 v0.2 更新内容', 'What’s new in v0.2')}</summary><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details></div>`;
+  },
+
   /* ================= 设置 ================= */
   view_set() {
     const s = Store.state.settings;
-    return `<div class="card">
+    return `${this.versionNotes()}<div class="card">
       <div class="h2">${tr('设置','Settings')}</div>
       <div class="field"><label>${tr('界面语言','App Language')}</label>
         <select onchange="UI.setLanguage(this.value)">
