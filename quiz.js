@@ -1,7 +1,9 @@
 /* ============ 练习题游戏 ============ */
 const GAMES = {
-  spell: { name: '听音拼单词', nameEn: 'Listen & Build', desc: '听一听，点字母，拼出单词', descEn: 'Listen, tap letters, and build the word', icon: '🔊', color: '#22c55e', size: 8 },
-  phonics: { name: 'Phonics 补音块', nameEn: 'Phonics Sound Blocks', desc: '听单词，补上开头的发音字母或组合', descEn: 'Listen and fill in the starting sound block', icon: '🧩', color: '#8b5cf6', size: 8 }
+  spell: { name: '听音拼单词', nameEn: 'Listen & Build', desc: '听一听，点字母，拼出单词', descEn: 'Listen, tap letters, and build the word', icon: '🔊', color: '#22c55e' },
+  phonics: { name: 'Phonics 补音块', nameEn: 'Phonics Sound Blocks', desc: '听单词补音块，无匹配规则时练补字母', descEn: 'Fill sound blocks, or missing letters for other words', icon: '🧩', color: '#8b5cf6' },
+  repair: { name: '拼写小医生', nameEn: 'Spelling Doctor', desc: '找出捣蛋字母，把单词修好', descEn: 'Find the wrong letter and fix the word', icon: '🩹', color: '#f59e0b' },
+  memory: { name: '记忆闪闪卡', nameEn: 'Peek & Spell', desc: '看一眼，盖起来，听音拼出来', descEn: 'Peek, hide, and spell what you remember', icon: '✨', color: '#ec4899' }
 };
 
 const Quiz = {
@@ -9,11 +11,10 @@ const Quiz = {
     if (!GAMES[type]) return;
     words = this.available(type, words || []);
     if (!words || words.length < 1) { toast(tr('这个范围暂无适合的题目，请换个范围或玩听音拼单词','No suitable words here. Choose another group or Listen & Build.')); return; }
-    const g = GAMES[type];
     this.type = type; this.onDone = onDone; this.mstate = null; this.opts = opts || {};
     this.sid = (this.sid || 0) + 1;
     this.pool = shuffle(words);
-    this.qs = this.pool.slice(0, g.size);
+    this.qs = this.pool.slice();
     this.settled = false; this.resultShown = false; this.qi = 0; this.right = 0; this.wrongWords = []; this.start = Date.now();
     this.render();
   },
@@ -27,24 +28,29 @@ const Quiz = {
     return rules.find(([letters, sound]) => word.startsWith(letters) && ph.startsWith(sound)) || null;
   },
   available(type, words) {
-    return words.filter(w => /^[a-z]+$/i.test(w.w) && (type !== 'phonics' || this.soundBlock(w)));
+    return words.filter(w => /[a-z]/i.test(w.w));
   },
   audioPrompt(w) {
     return `<button class="btn audio-play" onclick="speak(${esc(JSON.stringify(w.w))})" aria-label="${tr('再听一次','Listen again')}">🔊 ${tr('再听一次','Listen again')}</button>
       ${!window.speechSynthesis ? `<p role="status" class="q-sub">${tr('此浏览器不支持朗读，请用支持语音的浏览器，或请家长读题。','Speech is unavailable. Use a speech-enabled browser or ask a grown-up to read the word.')}<button class="btn gray sm" onclick="Quiz.showModel()">${tr('家长读题','For grown-ups')}</button></p>` : ''}`;
   },
   showModel() {
-    if (this.settled) return;
+    if (this.settled || this.spellBusy) return;
     this.assisted = true;
     $('#sound-help').textContent = this.qs[this.qi].w;
   },
   q_phonics(w) {
-    const [letters, sound] = this.soundBlock(w);
+    const block = this.soundBlock(w);
+    const index = block ? 0 : pick([...w.w.matchAll(/[a-z]/gi)].map(m => m.index));
+    const letters = block ? block[0] : w.w[index].toLowerCase();
+    this.soundIndex = index; this.soundRule = block;
     this.soundAnswer = letters;
-    const options = shuffle([letters, ...shuffle(['sh','ch','th','ph','b','d','f','m','s','t'].filter(x => x !== letters)).slice(0, 3)]);
+    // 音块题混入 sh/ch/th 等组合；补字母题只给单字母，避免与单个空位不符
+    const pool = (block ? ['sh','ch','th','ph','b','d','f','m','s','t'] : 'abcdefghijklmnopqrstuvwxyz'.split('')).filter(x => x !== letters);
+    const options = shuffle([letters, ...shuffle(pool).slice(0, 3)]);
     return `<div class="card center">${this.audioPrompt(w)}
-      <div class="q-sub">${tr('听一听，补上开头的音块','Listen and choose the missing starting sound')}</div>
-      <div class="sound-word"><span class="sound-gap">?</span>${esc(w.w.slice(letters.length))}</div>
+      <div class="q-sub">${block ? tr('听一听，补上开头的音块','Listen and choose the missing starting sound') : tr('听音补字母：这个词练拼写','Listen and fill a letter: spelling practice')}</div>
+      <div class="sound-word">${esc(w.w.slice(0, index))}<span class="sound-gap">?</span>${esc(w.w.slice(index + letters.length))}</div>
       <div class="sound-options">${options.map(x => `<button class="btn gray sound-option" data-block="${x}" onclick="Quiz.pickSound(this)">${x}</button>`).join('')}</div>
       <p id="sound-help" aria-live="polite"></p>
       <button class="btn gray sm" onclick="Quiz.showModel()">${tr('看一看单词（练习提示）','Peek at the word (practice hint)')}</button>
@@ -56,7 +62,7 @@ const Quiz = {
     $$('.sound-option').forEach(b => { b.disabled = true; if (b.dataset.block === this.soundAnswer) b.classList.add('sound-correct'); });
     btn.classList.add(correct ? 'sound-correct' : 'sound-wrong');
     $('.sound-gap').textContent = this.soundAnswer;
-    $('#sound-help').textContent = `${this.soundAnswer} → /${this.soundBlock(w)[1]}/ · ${w.w}`;
+    $('#sound-help').textContent = this.soundRule ? `${this.soundAnswer} → /${this.soundRule[1]}/ · ${w.w}` : w.w;
     speak(w.w);
     this.feedback(correct && !this.assisted); this.next(correct && !this.assisted, w.id);
   },
@@ -87,12 +93,12 @@ const Quiz = {
   },
   /* ---------- 题型 3：字母拼拼乐 ---------- */
   q_spell(w) {
-    const letters = shuffle(w.w.split(''));
+    const letters = shuffle(w.w.match(/[a-z]/gi) || []);
     return `<div class="card center">
       ${this.audioPrompt(w)}
       <div class="q-sub">${tr('听一听，点字母拼单词；点已选字母可以撤回','Listen and build the word. Tap a filled slot to undo.')}</div>
       <p id="sound-help" aria-live="polite"></p>
-      <div class="slots" id="slots">${w.w.split('').map(() => '<div class="slot empty" onclick="Quiz.undoSlot(this)"></div>').join('')}</div>
+      <div class="slots" id="slots">${w.w.split('').map(c => /[a-z]/i.test(c) ? '<button class="slot empty" onclick="Quiz.undoSlot(this)" aria-label="Undo letter"></button>' : `<span class="slot fixed">${esc(c)}</span>`).join('')}</div>
       <div class="letters" id="lets">${letters.map((c, i) =>
       `<button class="letter" data-i="${i}" onclick="Quiz.tapLetter(this,'${w.id}')">${esc(c)}</button>`).join('')}</div>
       <div class="mt16"><button class="btn gray sm" onclick="Quiz.hintSpell('${w.id}')">${tr('提示一个字母','Give me a letter')}</button></div>
@@ -116,7 +122,7 @@ const Quiz = {
         if (ans.toLowerCase() === w.w.toLowerCase()) { this.feedback(!this.assisted); speak(w.w); this.next(!this.assisted, id); }
         else { this.spellBusy = false; this.assisted = true; this.feedback(false); speak(w.w);
           $('#sound-help').textContent = tr('再听一次，试着重新拼！','Listen again and try once more!');
-          all.forEach(s => { s.classList.add('empty'); s.textContent = ''; });
+          all.filter(s => !s.classList.contains('fixed')).forEach(s => { s.classList.add('empty'); s.textContent = ''; });
           $$('#lets .letter').forEach(l => l.classList.remove('used'));
           $('#game .card').animate?.([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 280 });
         }
@@ -124,7 +130,7 @@ const Quiz = {
     }
   },
   undoSlot(s) {
-    if (this.settled || this.spellBusy || s.classList.contains('empty')) return;
+    if (this.settled || this.spellBusy || s.classList.contains('fixed') || s.classList.contains('empty')) return;
     const l = $('#lets .letter[data-i="' + s.dataset.i + '"]');
     if (l) l.classList.remove('used');
     s.classList.add('empty'); s.textContent = '';
@@ -139,6 +145,54 @@ const Quiz = {
     if (idx < 0) return;
     const btn = $$('#lets .letter').find(l => !l.classList.contains('used') && l.textContent.toLowerCase() === w.w[idx].toLowerCase());
     if (btn) { this.tapLetter(btn, id); toast(tr('提示一个字母','Here is a letter')); }
+  },
+  q_memory(w) {
+    this.memoryHidden = false;
+    return `<div class="card center">${this.audioPrompt(w)}
+      <div class="q-sub">${tr('看清字母顺序，准备好后盖住它！','Look at the letters. Hide the word when you are ready!')}</div>
+      <div class="sound-word">${esc(w.w)}</div><p id="sound-help" aria-live="polite"></p>
+      <button class="btn" onclick="Quiz.hideMemory()">🙈 ${tr('记住了，开始拼！','Hide & spell!')}</button></div>`;
+  },
+  hideMemory() {
+    if (this.settled || this.memoryHidden) return;
+    this.memoryHidden = true;
+    const w = this.qs[this.qi];
+    $('#game').innerHTML = this.head() + this.q_spell(w);
+    $('#sound-help').textContent = tr('凭记忆拼出来！也可以再听一次。','Build it from memory! You can listen again.');
+    speak(w.w);
+  },
+  q_repair(w) {
+    this.repairIndex = pick([...w.w.matchAll(/[a-z]/gi)].map(m => m.index));
+    this.repairSelected = null;
+    this.repairAnswer = w.w[this.repairIndex].toLowerCase();
+    const wrong = pick('abcdefghijklmnopqrstuvwxyz'.split('').filter(c => c !== this.repairAnswer));
+    const broken = w.w.slice(0, this.repairIndex) + wrong + w.w.slice(this.repairIndex + 1);
+    this.repairOptions = shuffle([this.repairAnswer, ...shuffle('abcdefghijklmnopqrstuvwxyz'.split('').filter(c => c !== this.repairAnswer)).slice(0, 3)]);
+    return `<div class="card center">${this.audioPrompt(w)}
+      <div class="q-sub">${tr('有一个字母生病了！听一听，点出它，再换成正确字母。','One letter is wrong! Listen, tap it, then choose its replacement.')}</div>
+      <div class="repair-word">${broken.split('').map((c,i) => /[a-z]/i.test(c) ? `<button class="letter repair-letter" data-index="${i}" onclick="Quiz.selectRepair(this)">${esc(c)}</button>` : `<span class="repair-separator">${esc(c)}</span>`).join('')}</div>
+      <div id="repair-options" class="sound-options"></div><p id="sound-help" aria-live="polite"></p>
+      <button class="btn gray sm" onclick="Quiz.showModel()">${tr('看一看单词（提示）','Peek at the word (hint)')}</button></div>`;
+  },
+  selectRepair(btn) {
+    if (this.settled) return;
+    this.repairSelected = Number(btn.dataset.index);
+    $$('.repair-letter').forEach(b => b.classList.toggle('repair-selected', b === btn));
+    $('#repair-options').innerHTML = this.repairOptions.map(c => `<button class="btn gray sound-option" data-letter="${c}" onclick="Quiz.fixRepair(this)">${c}</button>`).join('');
+  },
+  fixRepair(btn) {
+    if (this.settled || this.repairSelected === null) return;
+    const w = this.qs[this.qi];
+    if (this.repairSelected !== this.repairIndex || btn.dataset.letter !== this.repairAnswer) {
+      this.assisted = true;
+      $('#sound-help').textContent = tr('还没有修好，再听听，找找看！','Not fixed yet. Listen and try again!');
+      speak(w.w); return;
+    }
+    $$('.repair-letter').forEach(b => { b.disabled = true; });
+    $$('.sound-option').forEach(b => { b.disabled = true; });
+    $('.repair-selected').textContent = w.w[this.repairIndex];
+    $('#sound-help').textContent = tr('修好啦！','Fixed! ') + ' ' + w.w;
+    speak(w.w); this.feedback(!this.assisted); this.next(!this.assisted, w.id);
   },
   feedback(ok) {
     if (ok) { this.right++; try { navigator.vibrate && navigator.vibrate(15); } catch (e) { } }

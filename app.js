@@ -1,5 +1,5 @@
 /* ============ Word-Master-Harvey · 界面 ============ */
-const APP_VERSION = '0.2';
+const APP_VERSION = '0.3';
 const ICON = n => '<svg><use href="#i-' + n + '"/></svg>';
 const isEnglishUI = () => !!(Store.state && Store.state.settings && Store.state.settings.language === 'en');
 const tr = (zh, en) => isEnglishUI() ? en : zh;
@@ -356,7 +356,7 @@ const UI = {
   view_drill() {
     const info = Store.unitInfo(Store.unit);
     const scopes = {
-      unit: { name: tr('本单元单词','This unit'), get: () => Store.unitWords(Store.unit).filter(w => w.status !== 'new') },
+      unit: { name: tr('本单元单词','This unit'), get: () => Store.unitWords(Store.unit) },
       review: { name: tr('到期复习（跨单元）','Due for review'), get: () => Store.reviewDue() },
       learned: { name: tr('已学全部','All learned'), get: () => Store.state.words.filter(w => w.status !== 'new') },
       wrong: { name: tr('错词本','Tricky words'), get: () => Store.state.words.filter(w => w.wrong > 0 && w.status !== 'mastered').sort((a, b) => b.wrong - a.wrong) },
@@ -371,14 +371,14 @@ const UI = {
     </div>`;
     html += `<div class="game-grid">${Object.keys(GAMES).map(k => {
       const g = GAMES[k];
-      const n = Math.min(g.size, Quiz.available(k, words).length);
+      const n = Quiz.available(k, words).length;
       return `<button class="game-card" onclick="UI.play('${k}',${n})">
         <div class="ico" style="background:${g.color}">${g.icon}</div>
         <div style="flex:1"><b>${esc(isEnglishUI() ? g.nameEn : g.name)}</b><p>${esc(isEnglishUI() ? g.descEn : g.desc)}</p></div>
         <div class="muted">${n} ${tr('题','questions')}</div>
       </button>`;
     }).join('')}</div>`;
-    html += `<div class="card"><div class="h3">${tr('答题规则','How it works')}</div><p class="muted">${tr('可反复听音；使用提示或拼错后完成的题会加入复习，不计独立答对。Phonics 只练有明确音标匹配的词首音块。','Listen as often as you like. Words completed with hints or retries go into review and do not count as independent correct answers. Phonics practices verified starting sound blocks.')}</p>
+    html += `<div class="card"><div class="h3">${tr('答题规则','How it works')}</div><p class="muted">${tr('可反复听音；使用提示或拼错后完成的题会加入复习，不计独立答对。每轮覆盖所选范围全部可练词，包含短语。Phonics 无匹配规则时改为听音补字母。','Listen as often as you like. Words completed with hints or retries go into review and do not count as independent correct answers. Each round covers every playable word in the selected group, including phrases. Phonics falls back to spelling when no sound rule matches.')}</p>
       <div class="muted">${tr(`每答对 1 次，下次复习间隔自动拉长（1 → 2 → 4 → 7 → 15 → 30 天）；答错立即归零重来。累计答对 5 次 = 已掌握。完成本单元所有单词的学习 + 1 次练习 ≥ ${PASS_RATE}% = 本单元通关。各单元均可自由打开，不受顺序限制。`,`Each correct answer makes the next review wait longer: 1, 2, 4, 7, 15, then 30 days. Five correct answers master a word. Learn every word and score ${PASS_RATE}% or more to pass the unit.`)}</div></div>`;
     return html;
   },
@@ -386,7 +386,7 @@ const UI = {
   play(type, n) {
     if (n < 1) { toast(tr('没有可用题目，先去学新词或换个范围','No questions yet. Learn some words or choose another group.')); return; }
     const scopes = {
-      unit: () => Store.unitWords(Store.unit).filter(w => w.status !== 'new'),
+      unit: () => Store.unitWords(Store.unit),
       review: () => Store.reviewDue(),
       learned: () => Store.state.words.filter(w => w.status !== 'new'),
       wrong: () => Store.state.words.filter(w => w.wrong > 0 && w.status !== 'mastered'),
@@ -448,13 +448,14 @@ const UI = {
 
   versionNotes() {
     const notes = [
+      tr('v0.3：新增拼写小医生与记忆闪闪卡。四个游戏每轮覆盖所选范围全部可练词，支持短语；Phonics 无匹配规则时切换听音补字母。', 'v0.3: Added Spelling Doctor and Peek & Spell. All four games cover every playable word in the selected group, including phrases. Phonics uses spelling practice when no sound rule matches.'),
       tr('听音拼单词：听发音，点字母拼写，支持重听、撤回和字母提示。', 'Listen & Build: hear a word and tap letters to spell it, with replay, undo, and hints.'),
       tr('Phonics 补音块：听单词，补上词首字母或组合（如 sh、ch、th），根据音标匹配出题。', 'Phonics Sound Blocks: listen and fill in a starting letter or group such as sh, ch, or th, matched to the word’s pronunciation.'),
-      tr('游戏区精简为两个听音游戏，移除中英文选择、配对和词根选择等旧玩法。', 'Two audio-led games replace the previous translation, matching, and word-part quizzes.'),
+      tr('v0.2：移除中英文选择、配对和词根选择等旧玩法。', 'v0.2 replaced the previous translation, matching, and word-part quizzes.'),
       tr('拼错可重试；使用提示或重试完成的词进入复习，不计独立答对。保留原有学习记录和金币。', 'Retry misspellings. Words completed with hints or retries go into review instead of counting as independent correct answers. Learning records and coins are preserved.')
     ];
     return `<div class="card"><div class="between"><div class="h2">${tr('版本与更新', 'Version & Updates')}</div><span class="chip">v${APP_VERSION}</span></div>
-      <details><summary>${tr('查看 v0.2 更新内容', 'What’s new in v0.2')}</summary><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details></div>`;
+      <details><summary>${tr('查看更新内容', 'What’s new')}</summary><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details></div>`;
   },
 
   /* ================= 设置 ================= */

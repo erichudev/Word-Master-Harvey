@@ -154,21 +154,21 @@ ok('到期词按 next 升序', (() => { const r = Store.reviewDue(); return r.ev
 
 section('5. 听音拼写与 Phonics');
 const pool = Store.state.words;
-ok('游戏区只有两个新游戏', Object.keys(GAMES).join(',') === 'spell,phonics');
+ok('游戏区有四个游戏', Object.keys(GAMES).join(',') === 'spell,phonics,repair,memory');
 for (const type of Object.keys(GAMES)) {
   Quiz.open(type, pool);
   ok(type + ' 能开局', !!$('#game .audio-play'));
-  ok(type + ' 题量符合可用词', Quiz.qs.length === Math.min(GAMES[type].size, Quiz.available(type, pool).length));
+  ok(type + ' 题量符合可用词', Quiz.qs.length === pool.length);
   ok(type + ' 无中文释义考题', !$('#game .q-title'));
   Quiz.close(true);
 }
 ok('不把特殊发音误判为常规音块', !Quiz.soundBlock({w:'chef', ph:'/ʃef/'}));
 ok('双字母组合优先于单字母', Quiz.soundBlock({w:'ship', ph:'/ʃɪp/'})[0] === 'sh');
 ok('缺少音标的导入词不猜测发音', !Quiz.soundBlock({w:'ship'}));
-ok('短语不生成无法操作的空格字母', Quiz.available('spell', [{w:'ice cream'}]).length === 0);
+ok('短语不生成无法操作的空格字母', Quiz.available('spell', [{w:'ice cream'}]).length === 1);
 Quiz.open('phonics', pool);
 let step = 0;
-while (Quiz.qi < Quiz.qs.length && step++ < 30) {
+while (Quiz.qi < Quiz.qs.length && step++ < pool.length) {
   Quiz.render();
   const btn = [...win.document.querySelectorAll('.sound-option')].find(b => b.dataset.block === Quiz.soundAnswer);
   const before = Quiz.right;
@@ -196,6 +196,51 @@ for (const letter of spellingWord.w.slice(1)) {
 await new Promise(r => setTimeout(r, 260));
 ok('提示完成保留复习、不计独立掌握', Quiz.qi === 1 && Quiz.right === 0 && Quiz.wrongWords.includes(spellingWord.id));
 Quiz.close(true);
+
+section('5B. 全词库与新玩法');
+const phrase = Store.add({w: "ice-cream isn't cold", cn:'测试短语'}, 1);
+for (const type of Object.keys(GAMES)) {
+  Quiz.open(type, Store.state.words);
+  ok(type + ' 每个词只出一题且全部覆盖', Quiz.qs.length === Store.state.words.length && new Set(Quiz.qs.map(w => w.id)).size === Store.state.words.length);
+  for (const w of Quiz.qs) {
+    const el = win.document.createElement('div'); el.innerHTML = Quiz['q_' + type](w);
+    if (!el.querySelector('.audio-play')) throw new Error(type + ': ' + w.w);
+  }
+  Quiz.close(true);
+}
+Quiz.open('spell', [phrase]);
+ok('空格与标点固定显示', [...win.document.querySelectorAll('.slot.fixed')].map(b => b.textContent).join('') === "- ' ");
+Quiz.hintSpell(phrase.id);
+for (const letter of phrase.w.match(/[a-z]/gi).slice(1)) {
+  Quiz.tapLetter([...win.document.querySelectorAll('#lets .letter')].find(b => !b.classList.contains('used') && b.textContent === letter), phrase.id);
+}
+await new Promise(r => setTimeout(r, 260));
+ok('含标点短语可完成并记录提示', Quiz.qi === 1 && Quiz.right === 0);
+Quiz.close(true);
+Quiz.open('repair', [phrase]);
+Quiz.selectRepair(win.document.querySelector(`[data-index="${Quiz.repairIndex}"]`));
+const repairBtn = [...win.document.querySelectorAll('#repair-options button')].find(b => b.dataset.letter === Quiz.repairAnswer);
+Quiz.fixRepair(repairBtn); Quiz.fixRepair(repairBtn);
+ok('纠错修复正确且重复提交只计一次', Quiz.qi === 1 && Quiz.right === 1);
+Quiz.close(true);
+Quiz.open('repair', [phrase]);
+Quiz.selectRepair(win.document.querySelector(`[data-index="${Quiz.repairIndex}"]`));
+Quiz.fixRepair([...win.document.querySelectorAll('#repair-options button')].find(b => b.dataset.letter !== Quiz.repairAnswer));
+ok('纠错失败可重试', !Quiz.settled && Quiz.assisted);
+Quiz.fixRepair([...win.document.querySelectorAll('#repair-options button')].find(b => b.dataset.letter === Quiz.repairAnswer));
+ok('纠错重试完成进入错词', Quiz.right === 0 && Quiz.wrongWords.includes(phrase.id));
+Quiz.close(true);
+Quiz.open('memory', [phrase]);
+ok('记忆游戏先展示单词', !!win.document.querySelector('.sound-word') && !win.document.querySelector('#lets'));
+Quiz.hideMemory(); Quiz.hideMemory();
+ok('记忆游戏盖住后进入拼写', !win.document.querySelector('.sound-word') && !!win.document.querySelector('#lets'));
+for (const letter of phrase.w.match(/[a-z]/gi)) {
+  Quiz.tapLetter([...win.document.querySelectorAll('#lets .letter')].find(b => !b.classList.contains('used') && b.textContent === letter), phrase.id);
+}
+await new Promise(r => setTimeout(r, 260));
+ok('记忆游戏可完整结算', Quiz.qi === 1 && Quiz.right === 1);
+Quiz.close(true);
+Store.remove(phrase.id);
 
 /* ================= 6. 单元通关解锁 ================= */
 section('6. 单元通关 → 解锁下一单元');

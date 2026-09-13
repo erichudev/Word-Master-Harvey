@@ -1093,3 +1093,8 @@ body {
 #sound-help { min-height: 28px; font-size: 18px; }
 #game .slots { flex-wrap: wrap; }
 #game .letter { min-width: 44px; min-height: 48px; }
+
+#game .slot.fixed { white-space: pre; border: 0; background: transparent; min-width: 16px; }
+.repair-word { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 24px 0; }
+.repair-selected { outline: 3px solid #f59e0b; transform: translateY(-4px); }
+.repair-separator { white-space: pre; min-width: 16px; align-self: center; }

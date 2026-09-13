@@ -74,7 +74,7 @@ check('Phonics 根据音标出题，不依赖词根拆解', () => {
     assert.equal(opts.length, 4);
     assert.equal(opts.length, new Set(opts).size, w.w);
     assert.ok(opts.includes(Quiz.soundAnswer), w.w);
-    assert.ok(w.w.toLowerCase().startsWith(Quiz.soundAnswer));
+    assert.equal(w.w.slice(Quiz.soundIndex, Quiz.soundIndex + Quiz.soundAnswer.length).toLowerCase(), Quiz.soundAnswer);
   }
   Quiz.close(true);
 });
