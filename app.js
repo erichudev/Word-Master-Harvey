@@ -1,5 +1,5 @@
 /* ============ Word-Master-Harvey · 界面 ============ */
-const APP_VERSION = '0.3';
+const APP_VERSION = '0.3.1';
 const ICON = n => '<svg><use href="#i-' + n + '"/></svg>';
 const isEnglishUI = () => !!(Store.state && Store.state.settings && Store.state.settings.language === 'en');
 const tr = (zh, en) => isEnglishUI() ? en : zh;
@@ -448,6 +448,7 @@ const UI = {
 
   versionNotes() {
     const notes = [
+      tr('v0.3.1：游戏字母按钮、已选字母槽和单词展示统一改为小写，更适合孩子辨认。', 'v0.3.1: Every letter button, filled slot, and shown word now uses lowercase, which is easier for young readers.'),
       tr('v0.3：新增拼写小医生与记忆闪闪卡。四个游戏每轮覆盖所选范围全部可练词，支持短语；Phonics 无匹配规则时切换听音补字母。', 'v0.3: Added Spelling Doctor and Peek & Spell. All four games cover every playable word in the selected group, including phrases. Phonics uses spelling practice when no sound rule matches.'),
       tr('听音拼单词：听发音，点字母拼写，支持重听、撤回和字母提示。', 'Listen & Build: hear a word and tap letters to spell it, with replay, undo, and hints.'),
       tr('Phonics 补音块：听单词，补上词首字母或组合（如 sh、ch、th），根据音标匹配出题。', 'Phonics Sound Blocks: listen and fill in a starting letter or group such as sh, ch, or th, matched to the word’s pronunciation.'),

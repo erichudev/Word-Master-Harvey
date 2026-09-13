@@ -1,8 +1,8 @@
-# Word Master · Harvey · v0.3
+# Word Master · Harvey · v0.3.1
 
 A playful, bilingual vocabulary learning app designed for young learners. It runs entirely in the browser and adapts to phone and iPad layouts.
 
-Current version: **0.3**. See [更新记录](CHANGELOG.md) for release notes.
+Current version: **0.3.1**. See [更新记录](CHANGELOG.md) for release notes.
 
 ## Features
 

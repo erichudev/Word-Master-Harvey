@@ -37,7 +37,7 @@ const Quiz = {
   showModel() {
     if (this.settled || this.spellBusy) return;
     this.assisted = true;
-    $('#sound-help').textContent = this.qs[this.qi].w;
+    $('#sound-help').textContent = this.qs[this.qi].w.toLowerCase();
   },
   q_phonics(w) {
     const block = this.soundBlock(w);
@@ -62,7 +62,7 @@ const Quiz = {
     $$('.sound-option').forEach(b => { b.disabled = true; if (b.dataset.block === this.soundAnswer) b.classList.add('sound-correct'); });
     btn.classList.add(correct ? 'sound-correct' : 'sound-wrong');
     $('.sound-gap').textContent = this.soundAnswer;
-    $('#sound-help').textContent = this.soundRule ? `${this.soundAnswer} → /${this.soundRule[1]}/ · ${w.w}` : w.w;
+    $('#sound-help').textContent = this.soundRule ? `${this.soundAnswer} → /${this.soundRule[1]}/ · ${w.w.toLowerCase()}` : w.w.toLowerCase();
     speak(w.w);
     this.feedback(correct && !this.assisted); this.next(correct && !this.assisted, w.id);
   },
@@ -93,14 +93,14 @@ const Quiz = {
   },
   /* ---------- 题型 3：字母拼拼乐 ---------- */
   q_spell(w) {
-    const letters = shuffle(w.w.match(/[a-z]/gi) || []);
+    const letters = shuffle(w.w.toLowerCase().match(/[a-z]/g) || []);
     return `<div class="card center">
       ${this.audioPrompt(w)}
       <div class="q-sub">${tr('听一听，点字母拼单词；点已选字母可以撤回','Listen and build the word. Tap a filled slot to undo.')}</div>
       <p id="sound-help" aria-live="polite"></p>
       <div class="slots" id="slots">${w.w.split('').map(c => /[a-z]/i.test(c) ? '<button class="slot empty" onclick="Quiz.undoSlot(this)" aria-label="Undo letter"></button>' : `<span class="slot fixed">${esc(c)}</span>`).join('')}</div>
       <div class="letters" id="lets">${letters.map((c, i) =>
-      `<button class="letter" data-i="${i}" onclick="Quiz.tapLetter(this,'${w.id}')">${esc(c)}</button>`).join('')}</div>
+      `<button class="letter" data-i="${i}" onclick="Quiz.tapLetter(this,'${w.id}')">${esc(c.toLowerCase())}</button>`).join('')}</div>
       <div class="mt16"><button class="btn gray sm" onclick="Quiz.hintSpell('${w.id}')">${tr('提示一个字母','Give me a letter')}</button></div>
     </div>`;
   },
@@ -170,7 +170,7 @@ const Quiz = {
     this.repairOptions = shuffle([this.repairAnswer, ...shuffle('abcdefghijklmnopqrstuvwxyz'.split('').filter(c => c !== this.repairAnswer)).slice(0, 3)]);
     return `<div class="card center">${this.audioPrompt(w)}
       <div class="q-sub">${tr('有一个字母生病了！听一听，点出它，再换成正确字母。','One letter is wrong! Listen, tap it, then choose its replacement.')}</div>
-      <div class="repair-word">${broken.split('').map((c,i) => /[a-z]/i.test(c) ? `<button class="letter repair-letter" data-index="${i}" onclick="Quiz.selectRepair(this)">${esc(c)}</button>` : `<span class="repair-separator">${esc(c)}</span>`).join('')}</div>
+      <div class="repair-word">${broken.split('').map((c,i) => /[a-z]/i.test(c) ? `<button class="letter repair-letter" data-index="${i}" onclick="Quiz.selectRepair(this)">${esc(c.toLowerCase())}</button>` : `<span class="repair-separator">${esc(c)}</span>`).join('')}</div>
       <div id="repair-options" class="sound-options"></div><p id="sound-help" aria-live="polite"></p>
       <button class="btn gray sm" onclick="Quiz.showModel()">${tr('看一看单词（提示）','Peek at the word (hint)')}</button></div>`;
   },
@@ -190,8 +190,8 @@ const Quiz = {
     }
     $$('.repair-letter').forEach(b => { b.disabled = true; });
     $$('.sound-option').forEach(b => { b.disabled = true; });
-    $('.repair-selected').textContent = w.w[this.repairIndex];
-    $('#sound-help').textContent = tr('修好啦！','Fixed! ') + ' ' + w.w;
+    $('.repair-selected').textContent = w.w[this.repairIndex].toLowerCase();
+    $('#sound-help').textContent = tr('修好啦！','Fixed! ') + ' ' + w.w.toLowerCase();
     speak(w.w); this.feedback(!this.assisted); this.next(!this.assisted, w.id);
   },
   feedback(ok) {
